@@ -1,39 +1,55 @@
-import cx_Oracle
-import os
+import firebase_admin
+from firebase_admin import db,credentials
+import requests
+import json
 from dotenv import load_dotenv
+import os
+import datetime
+
 load_dotenv()
+CLIST_UNAME = os.getenv('CLIST_UNAME')
+CLIST_KEY = os.getenv('CLIST_KEY')
+DB_URL = os.getenv('DB_URL')
+TS = str(datetime.datetime.now()).replace(" ",'T')
 
-USER = os.getenv('USER')
-PASSWORD = os.getenv('PASSWORD')
-DSN = os.getenv('DSN')
-connection = cx_Oracle.connect(
-    user=USER,
-    password=PASSWORD,
-    dsn=DSN)
+key_set= {
+	'atcoder.jp', 
+	'codedrills.io', 
+	'kaggle.com',
+	'ctftime.org', 
+	'codechef.com',   
+	'quora.com',  
+	'aigaming.com', 
+	'codingcompetitions.withgoogle.com', 
+	 'hackerrank.com',
+	 'uva.onlinejudge.org',
+	 'binarysearch.com', 
+	 'yukicoder.me', 
+	 'icpc.global', 
+	 'facebook.com/hackercup', 
+	 'codeforces.com', 
+	 'hackerearth.com', 
+	 'geeksforgeeks.org', 
+	 'leetcode.com', 
+	 'codeforces.com/gyms'
+	 }
 
-print("Successfully connected to Oracle Database")
+cred = credentials.Certificate("c0d3r.json")
+firebase_admin.initialize_app(cred, {
+	'databaseURL': DB_URL
+	})
 
-cursor = connection.cursor()
 
-cursor.execute("""
-    begin
-        execute immediate 'drop table tutorial';
-        exception when others then if sqlcode <> -942 then raise; end if;
-    end;""")
+url = "https://clist.by/api/v2/contest/?username="+CLIST_UNAME+"&api_key="+CLIST_KEY+"&format=json&resource="+",".join(key_set)+"&start__gte="+TS
+r = requests.get(url)
 
-cursor.execute('''create table tutorial(
-    id int,
-    name varchar(40)
-    )''')
-
-rows = [ ("Task 1", 1 ),
-         ("Task 2", 2 ),
-         ("Task 3", 3 ),
-         ("Task 4", 4 ),
-         ("Task 5", 5 ) ]
-
-cursor.executemany("insert into tutorial (name,id) values(:1, :2)", rows)
-print(cursor.rowcount, "Rows Inserted")
-
-for row in cursor.execute('select id,name from tutorial'):
-    print(row[0], row[1])
+cont_list = r.json()["objects"]
+cont_dict={}
+for cont in cont_list:
+	if cont["resource_id"] not in cont_dict:
+		cont_dict[cont["resource_id"]]=[]
+	cont_dict[cont["resource_id"]].append(cont)
+cont_json=json.dumps(cont_dict)
+file_contents = json.loads(cont_json)
+ref = db.reference("/")
+ref.set(file_contents)

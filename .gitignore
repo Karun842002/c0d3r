@@ -1,2 +1,4 @@
 .env
 .vscode/settings.json
+venv
+c0d3r.json
